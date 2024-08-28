@@ -17,7 +17,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 //position camera
-camera.position.y = 2;
+camera.position.y = 0.75;
 camera.position.z = 5;
 
 //add light
@@ -52,8 +52,29 @@ document.addEventListener(
   false
 );
 
+//add event listener for keydown
+window.addEventListener("keydown", (event) => {
+  switch (event.code) {
+    case "KeyW":
+      moveForward = true;
+      break;
+    case "KeyS":
+      moveBackward = true;
+      break;
+    case "KeyA":
+      moveLeft = true;
+      break;
+    case "KeyD":
+      moveRight = true;
+      break;
+    case "Escape":
+      controls.unlock();
+      break;
+  }
+});
+
 //event listener for keydown
-document.addEventListener(
+/*document.addEventListener(
   "keydown",
   (event) => {
     switch (event.code) {
@@ -97,7 +118,7 @@ document.addEventListener(
     }
   },
   false
-);
+);*/
 
 //handle pointer lock state changes
 controls.addEventListener("lock", () => {
@@ -108,28 +129,87 @@ controls.addEventListener("unlock", () => {
   console.log("pointer unlocked");
 });
 
+//console.Log(ground.top);
+//console.log(cube.bottom);
+
+class Box extends THREE.Mesh {
+  constructor({
+    width,
+    height,
+    depth,
+    color = "#00ff00",
+    velocity = { x: 0, y: 0, z: 0 },
+    position = { x: 0, y: 0, z: 0 },
+  }) {
+    super(
+      new THREE.BoxGeometry(width, height, depth),
+      new THREE.MeshStandardMaterial({ color })
+    );
+
+    this.castShadow = true;
+
+    this.height = height;
+    this.width = width;
+    this.depth = depth;
+
+    this.position.set(position.x, position.y, position.z);
+
+    this.bottom - this.position.y - this.height / 2;
+    this.top = this.position.y + this.height / 2;
+
+    this.velocity = velocity;
+    this.gravity = -0.003;
+
+  }
+  update(ground) {
+    this.bottom = this.position.y - this.height / 2;
+    this.top = this.position.y + this.height / 2;
+
+    this.velocity.y += this.gravity;
+
+    //this is the ground collision
+   this.applyGravity();
+  }
+
+  applyGravity() {
+    if(this.bottom + this.velocity.y <= ground.top){
+      this.velocity.y *= 0.8;
+      this.velocity.y = -this.velocity.y;
+    } else {
+      this.position.y += this.velocity.y;
+    }
+  }
+}
 
 //add cube
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, material);
-cube.castShadow = true;
+const cube = new Box({
+  width: 1,
+  height: 1,
+  depth: 1,
+  velocity: { x: 0, y: -0.01, z: 0 },
+});
+
 scene.add(cube);
 
 //add ground
-const ground = new THREE.Mesh(
-  new THREE.BoxGeometry(5, 0.5, 10),
-  new THREE.MeshStandardMaterial({ color: 0x0000ff })
-);
+const ground = new Box({
+  width: 10,
+  height: 0.5,
+  depth: 10,
+  color: "#0000ff",
+  position: { x: 0, y: -2, z: 0 },
+});
+
 ground.receiveShadow = true;
-ground.position.y = -4;
 scene.add(ground);
 
 //add animation
 function animate() {
   requestAnimationFrame(animate);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
+
+  /*cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;*/
+  cube.update(ground);
 
   //calculate delta for smooth movement
   const delta = clock.getDelta();
