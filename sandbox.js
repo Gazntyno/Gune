@@ -2,7 +2,10 @@ import * as THREE from "../three.js-master/build/three.module.js";
 import { PointerLockControls } from "../three.js-master/examples/jsm/controls/PointerLockControls.js";
 
 //create renderer
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true,
+});
 renderer.shadowMap.enabled = true;
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -17,12 +20,11 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 //position camera
-camera.position.y = 0.75;
-camera.position.z = 5;
+camera.position.set(4, 6, 15);
 
 //add light
 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.y = 10;
+dirLight.position.y = 15;
 dirLight.position.z = 5;
 dirLight.castShadow = true;
 scene.add(dirLight);
@@ -63,6 +65,7 @@ class Box extends THREE.Mesh {
     color = "#00ff00",
     velocity = { x: 0, y: 0, z: 0 },
     position = { x: 0, y: 0, z: 0 },
+    zAcceleration = false,
   }) {
     super(
       new THREE.BoxGeometry(width, height, depth),
@@ -80,7 +83,7 @@ class Box extends THREE.Mesh {
     this.right = this.position.x + this.width / 2;
     this.left = this.position.x - this.width / 2;
 
-    this.bottom - this.position.y - this.height / 2;
+    this.bottom = this.position.y - this.height / 2;
     this.top = this.position.y + this.height / 2;
 
     this.front = this.position.z + this.depth / 2;
@@ -88,6 +91,8 @@ class Box extends THREE.Mesh {
 
     this.velocity = velocity;
     this.gravity = -0.002;
+
+    this.zAcceleration = zAcceleration;
   }
 
   updateSides() {
@@ -104,6 +109,8 @@ class Box extends THREE.Mesh {
   update(ground) {
     this.updateSides();
 
+    if (this.zAcceleration) this.velocity.z += 0.0003;
+
     this.position.x += this.velocity.x;
     this.position.z += this.velocity.z;
 
@@ -114,12 +121,10 @@ class Box extends THREE.Mesh {
   applyGravity(ground) {
     this.velocity.y += this.gravity;
 
-    if (this.bottom + this.velocity.y <= ground.top) {
+    if (boxCollision({ box1: this, box2: ground })) {
       this.velocity.y *= 0.8;
       this.velocity.y = -this.velocity.y;
-    } else {
-      this.position.y += this.velocity.y;
-    }
+    } else this.position.y += this.velocity.y;
   }
 }
 
@@ -139,6 +144,7 @@ const cube = new Box({
   height: 1,
   depth: 1,
   velocity: { x: 0, y: -0.01, z: 0 },
+  position: { x: 0, y: 0, z: 5 },
 });
 
 scene.add(cube);
@@ -147,8 +153,8 @@ scene.add(cube);
 const ground = new Box({
   width: 10,
   height: 0.5,
-  depth: 10,
-  color: "#0000ff",
+  depth: 50,
+  color: "#792bff",
   position: { x: 0, y: -2, z: 0 },
 });
 
@@ -186,6 +192,9 @@ window.addEventListener("keydown", (event) => {
     case "KeyD":
       keys.d.pressed = true;
       break;
+    case "Space":
+      cube.velocity.y = 0.1;
+      break;
     case "Escape":
       controls.unlock();
       break;
@@ -212,15 +221,20 @@ window.addEventListener("keyup", (event) => {
   }
 });
 
+const enemies = [];
+
+let frames = 0;
+let spawnRate = 200;
+
 //add animation
 function animate() {
-  requestAnimationFrame(animate);
+  const animationID = requestAnimationFrame(animate);
 
   /*cube.rotation.x += 0.01;
   cube.rotation.y += 0.01;*/
 
   //movement settings
-  let playerSpeed = 0.03;
+  let playerSpeed = 0.05;
   cube.velocity.x = 0;
   cube.velocity.z = 0;
   if (keys.a.pressed) cube.velocity.x = -playerSpeed;
@@ -230,6 +244,30 @@ function animate() {
   else if (keys.s.pressed) cube.velocity.z = playerSpeed;
 
   cube.update(ground);
+  enemies.forEach((enemy) => {
+    enemy.update(ground);
+    if (boxCollision({ box1: cube, box2: enemy })) {
+      window.cancelAnimationFrame(animationID);
+      sdw;
+    }
+  });
+
+  if (frames % spawnRate === 0) {
+    if (spawnRate > 20) spawnRate -= 10;
+    const enemy = new Box({
+      width: 1,
+      height: 1,
+      depth: 1,
+      position: { x: (Math.random() - 0.5) * 10, y: 0, z: -25 },
+      velocity: { x: 0, y: 0, z: 0.008 },
+      color: "red",
+      zAcceleration: true,
+    });
+
+    scene.add(enemy);
+    enemies.push(enemy);
+  }
+  frames++;
 
   renderer.render(scene, camera);
 }
